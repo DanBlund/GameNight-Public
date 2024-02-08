@@ -1,0 +1,104 @@
+﻿@page "/player"
+@page "/player/{id:int}"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+@if (Id is null)
+{
+    <PageTitle>Create Player</PageTitle>
+    <h3>Add new Player</h3>
+}
+else
+{
+    <PageTitle>Edit @player.FirstName</PageTitle>
+    <h3>Edit @player.FirstName</h3>
+}
+
+<EditForm Model="player" OnSubmit="HandleSubmit"> @* OnValidSubmit="" OnInvalidSubmit="" *@
+@*     <DataAnnotationsValidator /> *@
+    <div>
+        <label for="firstName">First Name</label>
+        <InputText id="firstName" @bind-Value="player.FirstName" class="form-control"></InputText>
+    </div>
+    <br />
+    <div>
+        <label for="lastName">Last Name</label>
+        <InputText id="lastName" @bind-Value="player.LastName" class="form-control"></InputText>
+    </div>
+    <br />
+    <div>
+        <label for="nickName">Nick Name</label>
+        <InputText id="nickName" @bind-Value="player.NickName" class="form-control" maxlength="13"></InputText>
+    </div>
+    <br />
+    <div>
+        <label for="timesAttended">Times Attended</label>
+        <InputNumber id="timesAttended" @bind-Value="player.TimesAttended" class="form-control" disabled></InputNumber>
+    </div>
+    <br />
+    <div>
+        <label for="timesDictator">Times Dictator</label>
+        <InputNumber id="timesDictator" @bind-Value="player.TimesDictator" class="form-control" disabled></InputNumber>
+    </div>
+    <br />
+    <div>
+        <label for="comment">Comment</label>
+        <InputText id="comment" @bind-Value="player.Comment" class="form-control"></InputText>
+    </div>
+    <br />
+    <div>
+        <label for="retired">Retired</label>        
+        <InputCheckbox style="width:15px; height:15px;" id="retired" @bind-Value="player.Retired"></InputCheckbox>        
+    </div>
+    <br />
+    <br />
+    <button type="submit" class="btn @(processing == true ? "disabled btn-warning" : "btn-primary")">@(processing == true ? "Processing..." : "Save")</button>
+    @* <button type="button" class="btn btn-primary @(processing == true ? "disabled" : "") @(Id == null ? "hide" : "")" @onclick="DeletePlayer">Delete</button>  *@
+</EditForm>
+
+
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+    Player player = new Player();
+    public bool processing = false;
+
+    async Task HandleSubmit()
+    {
+        processing = true;
+        if(player.Retired is true)
+        {
+            player.Attending = false;
+            player.IsDictator = false;
+        }
+        if (Id is null)
+        {
+            await Http.PostAsJsonAsync("api/player", player);
+            NavigationManager.NavigateTo("/players");
+        }
+        else
+        {
+            await Http.PutAsJsonAsync($"api/player/{Id}", player);
+            NavigationManager.NavigateTo($"/playerdetails/{Id}");
+        }     
+    }
+
+    async Task DeletePlayer()
+    {
+        processing = true;
+        await Http.DeleteAsync($"api/player/{Id}");
+        NavigationManager.NavigateTo("/players");
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if(Id is not null)
+        {
+            var result = await Http.GetFromJsonAsync<Player>($"api/player/{Id}");
+            if (result is not null)
+                player = result;
+        }
+    }
+
+}

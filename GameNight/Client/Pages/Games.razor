@@ -1,0 +1,267 @@
+﻿@page "/games"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject GameNightProcessor GameProcessor
+@using GameNight.Client.Components
+@using GameNight.Shared
+@using GameNight.Shared.Enums
+
+@if (games is null)
+{
+    <span><em>Loading Games...</em></span>
+}
+else
+{
+    <div class="dropdown col-12" style="z-index: 10;">
+        <button class="btn btn-outline-primary dropdown-toggle col-12 game-filter-button" type="button" aria-label="Toggle navigation" @onclick="ToggleCollapse">
+            <span class="navbar-toggler-icon "></span>
+            Filter Games
+        </button>
+
+        <div class="@collapseStatus navbar-collapse col-12 position-absolute" id="navbarCollapse" style="background-color: #e5e5e5;">
+            <ul class="navbar-nav mb-2 mb-lg-0">
+                <GameFilter Comp="SetComp" MinL="SetMinL" MaxL="SetMaxL" PlC="SetPlC" BplC="SetBplC" Ret="SetRet" Loca="SetLoca" Tit="SetTit"></GameFilter>
+            </ul>
+        </div>
+    </div>
+    <div class="d-flex justify-content-between">
+        <div class="btn-group button-group" role="group" aria-label="Third group">
+            <button type="button" class="btn btn-outline-primary @(currentPage <= 1 ? "disabled" : "")" @onclick="() => TogglePage(-1)">Prev</button>
+            <button type="button" class="btn btn-outline-primary ">Page @currentPage of @totalPages</button>
+            <button type="button" class="btn btn-outline-primary @(currentPage >= totalPages ? "disabled" : "")" @onclick="() => TogglePage(1)">Next</button>
+        </div>
+        <button class="btn btn-primary" @onclick="(() => RandomGame())">
+            Random Game
+        </button>
+    </div>
+    
+    <br />
+    <table class="table table-light no-margin">
+        <thead class="table-primary">
+            <tr>
+                <th class="adjusted-width"></th>
+                <th>Title</th>
+                <th>Players</th>
+                <th class="hide-on-small">Best Count</th>
+                <th class="hide-on-small">Time (min)</th>
+                <th>Complex</th>
+                <th class="hide-on-small col-1">Avg. Rating</th>
+                <th class="col-1 hide-on-small">Rating of Attending</th>
+                <th class="col-1 hide-on-big">Grade</th>
+                <th class="hide-on-small">Location</th>
+                <th class="hide-on-small">Navigate</th>
+                <th class="hide-on-small">Rate</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (isRetired is false)
+            { 
+                selectedGames = SetGamesList(games); 
+            }
+            else
+            { selectedGames = SetGamesList(retiredGames); }
+            @foreach (var game in selectedGames)
+            {
+                <tr>
+                    <td><a @onclick="(() => NavigateToDetails(game.Id))"><img src="@($"{game.ThumbnailUrl}")" class="employee-img rounded-circle img-fluid small-image" /></a></td>
+                    <td> <a @onclick="(() => NavigateToDetails(game.Id))">@game.Title</a> </td>
+                    <td>@game.MinPlayers - @game.MaxPlayers</td>
+                    <td class="hide-on-small">@game.BestMinPlayers - @game.BestMaxPlayers</td>
+                    <td class="hide-on-small">@game.GameLength</td>
+                    <td>@game.GameComplexity</td>
+                    <td class="hide-on-small">@GameProcessor.RatingAsString(GameProcessor.AvarageRating(game, Ratings))</td>
+                    <td>@GameProcessor.RatingAsString(game.AvarageRatingOfAttended)</td>
+                    <td class="hide-on-small">@game.Location!.FirstName</td>
+                    <td class="hide-on-small">
+                        <button class="btn btn-outline-primary btn-sm mb-1" @onclick="(() => NavigateToDetails(game.Id))">
+                            Details
+                        </button>
+                    </td>
+                    <td class="hide-on-small">
+                        <button class="btn btn-primary btn-sm mb-1" @onclick="() => AddRating(game.Id)">
+                            Rate
+                        </button>
+                    </td>
+                </tr>
+
+            }
+            <tr class="hide-on-big">.</tr>
+        </tbody>
+    </table>
+    <div class="d-flex justify-content-between">
+                <div class="btn-group button-group" role="group" aria-label="Third group">
+    <button type="button" class="btn btn-outline-primary @(currentPage <= 1 ? "disabled" : "")" @onclick="() => TogglePage(-1)">Prev</button>
+    <button type="button" class="btn btn-outline-primary ">Page @currentPage of @totalPages</button>
+    <button type="button" class="btn btn-outline-primary @(currentPage >= totalPages ? "disabled" : "")" @onclick="() => TogglePage(1)">Next</button>
+    </div>
+        <button @onclick="AddGame" class="btn btn-primary">
+            Add Game
+        </button>
+    </div>
+}
+
+
+@code {
+    List<Game>? games;
+    List<Game>? retiredGames { get; set; } = default!;
+    List<Game>? selectedGames { get; set; } = default!;
+    List<Rating>? Ratings { get; set; }
+    List<Player>? Players { get; set; }
+    public Game? Game { get; set; } = null;
+    public string collapseStatus = "collapse";
+
+    void AddGame()
+    {
+        NavigationManager.NavigateTo("/game");
+    }
+    void AddRating(int id)
+    {
+        NavigationManager.NavigateTo($"/newrating/{id}");
+    }
+    public void NavigateToDetails(int id)
+    {
+        NavigationManager.NavigateTo($"/gamedetails/{id}");
+    }
+    public List<Game> SetGamesList(List<Game> games)
+    {
+        List<Game> filteredGames = new List<Game>();
+        foreach (Game game in games)
+        {
+            if ((minLength is null || minLength <= game.GameLength)
+            && (maxLength is null || maxLength >= game.GameLength)
+            && (title is null || game.Title.ToUpper().Contains(title.ToUpper()))
+            && (complex == "All" || complex == game.GameComplexity.ToString())
+            && (location == 99 || location == game.Location!.Id)
+            && (plCount is 0 || plCount <= game.MaxPlayers && plCount >= game.MinPlayers)
+            && (onlyBest is false || onlyBest is true && plCount <= game.BestMaxPlayers && plCount >= game.BestMinPlayers)
+            )
+            {
+                filteredGames.Add(game);
+            }
+        }
+
+        return Pagination(filteredGames);
+    }
+
+    #region For Filtering
+    string? title;
+    int? minLength;
+    int? maxLength;
+    string complex = "All";
+    int location = 99;
+    int plCount = 0;
+    bool isRetired = false;
+    bool onlyBest = false;
+
+    private void SetTit(string? value)
+    {
+        title = value;
+        ToggleCollapse();
+    }
+    private void SetMinL(int? value)
+    {
+        minLength = value;
+        ToggleCollapse();
+    }
+    private void SetMaxL(int? value)
+    {
+        maxLength = value;
+        ToggleCollapse();
+    }
+    private void SetComp(string value)
+    {
+        complex = value;
+        ToggleCollapse();
+    }
+    private void SetPlC(int value)
+    {
+        plCount = value;
+        ToggleCollapse();
+    }
+    private void SetBplC(bool value)
+    {
+        onlyBest = value;
+        if (plCount is not 0)
+            ToggleCollapse();
+    }
+    private void SetRet(bool value)
+    {
+        isRetired = value;
+        ToggleCollapse();
+    }
+    private void SetLoca(int value)
+    {
+        location = value;
+        ToggleCollapse();
+    }
+    public void ToggleCollapse()
+    {
+        if (collapseStatus is "")
+            collapseStatus = "collapse";
+        else if (collapseStatus is "collapse")
+            collapseStatus = "";
+
+        currentPage = 1;
+    }
+    #endregion
+
+    #region For Pagination
+    public int currentPage = 1;
+    public int totalPages = 0;
+    public List<Game> Pagination(List<Game>? games)
+    {
+        List<Game> returnGames = new List<Game>();
+        int gamesPerPage = 50;
+        int skip = (currentPage - 1) * gamesPerPage;
+        if (games is not null)
+        {
+            totalPages = games.Count / gamesPerPage + 1;
+            returnGames = games.Skip(skip).Take(gamesPerPage).ToList();
+        }      
+        return returnGames;
+    }
+    public void TogglePage(int i)
+    {
+        currentPage += i;
+    }
+    #endregion
+
+    public void RandomGame()
+    {
+        Random rng = new Random();
+        int max = 0;
+        if (games is not null)
+            max = games.Count;
+        if(retiredGames is not null)    
+            max += retiredGames.Count;
+        int randomGame = rng.Next(1, max);
+        NavigationManager.NavigateTo($"/gamedetails/{randomGame}");
+    }
+
+    private async Task UppdateGamesList()
+    {
+        var ratingsList = await Http.GetFromJsonAsync<List<Rating>>("api/rating");
+        if (ratingsList is not null)
+            Ratings = ratingsList;
+
+        var playersList = await Http.GetFromJsonAsync<List<Player>>("api/player");
+        if (playersList is not null)
+            Players = playersList;
+
+        var gamesList = await Http.GetFromJsonAsync<List<Game>>("api/game");
+        if (gamesList is not null)
+        {
+            foreach (Game game in gamesList)
+                game.AvarageRatingOfAttended = GameProcessor.AvarageRatingOfAttended(game, Ratings);
+
+            retiredGames = gamesList.Where(g => g.Retired == true).OrderByDescending(o => o.AvarageRatingOfAttended).ThenBy(o => o.Title).ToList();
+            games = gamesList.Where(g => g.Retired == false).OrderByDescending(o => o.AvarageRatingOfAttended).ThenBy(o => o.Title).ToList();
+        }
+        StateHasChanged();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await UppdateGamesList();
+    }
+}

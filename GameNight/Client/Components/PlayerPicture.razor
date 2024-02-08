@@ -1,0 +1,15 @@
+﻿@using Microsoft.AspNetCore.Components;
+
+<img src="@($"/images/players/{picNumber}-{Player.Id}.jpg")" class="employee-img rounded-circle img-fluid" />
+
+@code {
+    [Parameter] public Player Player { get; set; } = default!;
+
+    int picNumber;
+
+    protected override void OnParametersSet()
+    {
+        picNumber = (int)Player.TimesDictator % 10;
+    }
+
+}

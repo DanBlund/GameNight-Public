@@ -1,0 +1,25 @@
+﻿@using GameNight.Client.Components
+<div class="sidebar bg-light d-none d-md-block">
+    <div class="pt-2 h-100">
+        <ProfilePicture>
+            <img class="img-fluid rounded-circle" src="/images/profilepicture1.jpg" />
+        </ProfilePicture>
+
+        <div class="menu list-group list-group-flush pt-5">
+            <NavLink class="list-group-item list-group-item-action bg-light" href="/players" Match="NavLinkMatch.All"> @* @onclick="@(async () => await SendPageTitle.InvokeAsync("Dictators"))" *@
+                <span class="oi oi-people" aria-hidden="true"></span> Dictators
+            </NavLink>
+            <NavLink class="list-group-item list-group-item-action bg-light" href="/games"> @* @onclick="@(async () => await SendPageTitle.InvokeAsync("Games"))"  *@
+                <span class="oi oi-puzzle-piece" aria-hidden="true"></span> Games
+            </NavLink>
+            <NavLink class="list-group-item list-group-item-action bg-light" href="/loggs"> @* @onclick="@(async () => await SendPageTitle.InvokeAsync("Loggs"))"  *@
+                <span class="oi oi-pencil" aria-hidden="true"></span> Loggs
+            </NavLink>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] // EventCallback låter parent component uppdaera när nått händer med denna komponent
+    public EventCallback<string> SendPageTitle { get; set; }
+}

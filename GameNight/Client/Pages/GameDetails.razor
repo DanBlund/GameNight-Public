@@ -1,0 +1,101 @@
+﻿@page "/gamedetails/{GameId}"
+@using GameNight.Client.Components
+@using GameNight.Shared
+@using Microsoft.AspNetCore.Components;
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject GameNightProcessor GameProcessor
+
+@if (Game is null)
+{
+    <p>No Game loaded</p>
+}
+else
+{
+    if (Game.Title is null)
+    {
+        <PageTitle>No Title...</PageTitle>
+    }
+    else
+    {
+        <PageTitle>@Game.Title</PageTitle>
+    }
+    <section>
+        <div>
+            <div class="col-2 text-center player-pic @(Game.Retired == true ? "opacity-50" : "")">
+                <img src="@($"{Game.ImageUrl}")" class="img-fluid employee-detail-img" />
+            </div>
+            <br />
+            <h3>@Game.Title</h3>
+        </div>
+        <br />
+        <div class="flex-column">
+            <div class="row d-flex ">
+                <p class="col-5 fw-bold">Player Count</p>
+                <p class="col-5">@Game.MinPlayers - @Game.MaxPlayers</p>
+            </div>
+            <div class="row d-flex ">
+                <p class="col-5 fw-bold">Best Pl. Count Players</p>
+                <p class="col-5">@Game.BestMinPlayers - @Game.BestMaxPlayers</p>
+            </div>
+            <div class="row d-flex ">
+                <p class="col-5 fw-bold">Game Length</p>
+                <p class="col-5">@Game.GameLength min</p>
+            </div>
+            <div class="row d-flex ">
+                <p class="col-5 fw-bold">Complexity</p>
+                <p class="col-5">@Game.GameComplexity</p>
+            </div>
+            <div class="row d-flex ">
+                <p class="col-5 fw-bold">Location</p>
+                <p class="col-5">@Game.Location.FirstName</p>
+            </div>
+            <div class="row d-flex ">
+                <p class="col-5 fw-bold">Avg. Rating</p>
+                <p class="col-5">@GameProcessor.RatingAsString(GameProcessor.AvarageRating(Game, Ratings))</p>
+            </div>
+            <div class="row d-flex ">
+                <p class="col-5 fw-bold">Avg. Rating of Attended</p>
+                <p class="col-5">@GameProcessor.RatingAsString(Game.AvarageRatingOfAttended)</p>
+            </div>
+            <div class="row">
+                <p class="col-5 fw-bold">Comment</p>
+                <p class="col-5">@Game.Description</p>
+            </div>
+        </div>
+    </section>
+    <br />
+    <button @onclick="(() => EditGame(Game.Id))" class="btn btn-primary">Edit</button>
+    <button class="btn btn-primary" @onclick="() => AddRating(Game.Id)">Rate</button>
+    <br />
+    <br />
+    <Ratings Game="Game"></Ratings>
+}
+
+@code {
+    [Parameter]
+    public string? GameId { get; set; }
+    public Game? Game { get; set; }
+    public List<Rating> Ratings = new List<Rating>();
+
+    void AddRating(int id)
+    {
+        NavigationManager.NavigateTo($"/newrating/{id}");
+    }
+
+    void EditGame(int id)
+    {
+        NavigationManager.NavigateTo($"/game/{id}");
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Http.GetFromJsonAsync<Game>($"api/game/{GameId}");
+        if (result is not null)
+            Game = result;
+
+        var ratingsList = await Http.GetFromJsonAsync<List<Rating>>("api/rating");
+        if (ratingsList is not null)
+            Ratings = ratingsList;
+    }
+}

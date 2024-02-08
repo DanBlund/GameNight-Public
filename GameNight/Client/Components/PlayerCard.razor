@@ -1,0 +1,118 @@
+﻿@using Microsoft.AspNetCore.Components;
+@inject NavigationManager NavigationManager
+@inject HttpClient Http
+
+<div class="col">
+    <div class="card rounded-3 employee-card">
+
+        <div class="card-header py-3 d-flex justify-content-between">
+            <h3 class="hide-on-small">@Player.FirstName "@Player.NickName"</h3>
+            <h2 class="hide-on-big">@Player.FirstName "@Player.NickName"</h2>
+        </div>
+
+        <div class="card-body employee-card text-center @(Player.Attending == false ? "opacity-50" : "")">
+            <div class="mb-3">
+                <PlayerPicture Player="Player"></PlayerPicture>
+            </div>
+
+            <div class="form-group row d-flex justify-content-center">
+                <label class="col-5 col-form-label hide-on-small">Dictator</label>
+                <div class="col-5 hide-on-small">
+                    <label type="text" readonly class="form-control-plaintext">@Player.TimesDictator</label>
+                </div>
+            </div>
+
+            <div class="form-group row d-flex justify-content-center">
+                <label class="col-5 col-form-label hide-on-small">Subject</label>
+                <div class="col-5 hide-on-small">
+                    <label type="text" readonly class="form-control-plaintext">@Player.TimesAttended</label>
+                </div>
+            </div>
+
+            <div class="form-group row d-flex justify-content-center">
+                <label class="col-5 col-form-label">Dic %</label>
+                <div class="col-5">
+                    <label type="text" readonly class="form-control-plaintext">@Player.DictatorPrecentage %</label>
+                </div>
+            </div>
+        </div>
+        @* FÖR DESKTOP *@
+        <div class="card-footer employee-card text-center hide-on-small">
+            <button @onclick="(() => Attend())" class="btn btn-sm mb-1 @(processing == true ? "disabled" : "") 
+                    @(Player.Attending == true ? "btn-primary" : "btn-outline-primary")  @(Player.Retired == true ? "hide" : "")" >
+                Attend
+            </button>
+            <button @onclick="(() => BecomeDictator())" class="btn btn-sm mb-1 @(processing == true ? "disabled" : "") 
+                    @(Player.Retired == true ? "hide" : "") @(Player.IsDictator == true ? "btn-primary" : "btn-outline-primary") @(Player.Attending == false ? "disabled" : "")">
+                Dictator
+            </button>
+            <button @onclick="(() => NavigateToDetails(Player))" class="btn btn-outline-primary btn-sm mb-1 @(processing == true ? "disabled" : "")">
+                Details
+            </button>
+        </div>
+        @* FÖR MOBIL *@
+        <div class="card-footer employee-card text-center hide-on-big @(processing == true ? "disabled" : "")">
+            <button @onclick="(() => Attend())" class="btn btn-lg mb-1 @(Player.Attending == true ? "btn-primary" : "btn-outline-primary") 
+                    @(Player.Retired == true ? "hide" : "")">
+                Attend
+            </button>
+            <button @onclick="(() => BecomeDictator())" class="btn btn-lg mb-1 @(processing == true ? "disabled" : "") 
+                    @(Player.Retired == true ? "hide" : "") @(Player.IsDictator == true ? "btn-primary" : "btn-outline-primary") @(Player.Attending == false ? "disabled" : "")">
+                Dictator
+            </button>
+            <button @onclick="(() => NavigateToDetails(Player))" class="btn btn-outline-primary btn-lg mb-1 @(processing == true ? "disabled" : "")">
+                Details
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Player Player { get; set; } = default!;
+
+    [CascadingParameter]    // Gör Players.razor till parameter att använda i metoden nedan
+    public GameNight.Client.Pages.Players? _Parent { get; set; }
+    bool processing = false;
+    public async Task Attend()
+    {
+        processing = true;
+        if (Player.Attending is false)
+            Player.Attending = true;
+        else if (Player.Attending is true)
+        {
+            Player.Attending = false;
+            Player.IsDictator = false;
+        }
+        await Http.PutAsJsonAsync($"api/player/{Player.Id}", Player);
+        StateHasChanged();
+        if(_Parent is not null)
+            _Parent.SetAttendedLists();       
+        processing = false;
+    }
+
+    public async Task BecomeDictator()
+    {
+        processing = true;
+        if (Player.IsDictator is true)
+        {
+            Player.IsDictator = false;
+        }
+        else
+        {
+            if (_Parent is not null)
+                await _Parent.DisableDictator();
+            Player.IsDictator = true;
+        }
+        await Http.PutAsJsonAsync($"api/player/{Player.Id}", Player);
+        StateHasChanged();
+        if (_Parent is not null)
+            _Parent.SetAttendedLists();
+        processing = false;
+    }
+
+    public void NavigateToDetails(Player selectedPlayer)
+    {
+        NavigationManager.NavigateTo($"/playerdetails/{selectedPlayer.Id}");
+    }
+}

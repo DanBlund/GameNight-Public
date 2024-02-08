@@ -1,0 +1,93 @@
+﻿@page "/playerdetails/{PlayerId}"
+@using GameNight.Client.Components
+@using Microsoft.AspNetCore.Components;
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+@if (Player is null)
+{
+    <p>No Player loaded</p>
+}
+else
+{
+    if (Player.FirstName is null)
+    {
+        <PageTitle>No Name...</PageTitle>
+    }
+    else
+    {
+        <PageTitle>@Player.FirstName</PageTitle>
+    }
+    <section>
+        <div>
+            <h3>@Player.FirstName "@Player.NickName"</h3>
+            <div class="col-2 text-center player-pic @(Player.Retired == true ? "opacity-50" : "")">
+                <PlayerPicture Player="Player"></PlayerPicture>
+            </div>
+        </div>
+        <br />
+        <div class="flex-column">
+            <div class="row d-flex ">
+                <p class="col-5 fw-bold">Name</p>
+                <p class="col-5">@Player.FirstName "@Player.NickName" @Player.LastName</p>
+            </div>
+            <div class="row d-flex ">
+                <p class="col-5 fw-bold">Times Dictator</p>
+                <p class="col-5">@Player.TimesDictator</p>
+            </div>
+            <div class="row d-flex ">
+                <p class="col-5 fw-bold">Times Subject</p>
+                <p class="col-5">@Player.TimesAttended</p>
+            </div>
+            <div class="row d-flex ">
+                <p class="col-5 fw-bold">Dictator %</p>
+                <p class="col-5">@Player.DictatorPrecentage%</p>
+            </div>
+            <div class="row d-flex ">
+                <p class="col-5 fw-bold">Games at location</p>
+                @if (gamesAtLocation is not null)
+                {
+                    <p class="col-5">@gamesAtLocation.Count</p>
+                }
+            </div>
+            <div class="row d-flex ">
+                <p class="col-5 fw-bold">Retired</p>
+                <p class="col-5">@Player.Retired</p>
+            </div>
+            <div class="row">
+                <p class="col-3 fw-bold">Comment</p>
+                <p class="col-9">@Player.Comment</p>
+            </div>
+        </div>
+    </section>
+    <br />
+    <button @onclick="(() => EditPlayer(Player.Id))" class="btn btn-primary">Edit Player</button>
+    <br />
+    <br />
+    <Ratings Player="Player"></Ratings>
+}
+
+@code {
+    [Parameter]
+    public string PlayerId { get; set; }
+    public Player? Player { get; set; }
+    public List<Game>? gamesAtLocation;
+
+    void EditPlayer(int id)
+    {
+        NavigationManager.NavigateTo($"/player/{id}");
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Http.GetFromJsonAsync<Player>($"api/player/{PlayerId}");
+        if (result is not null)
+            Player = result;
+
+        var gamesList = await Http.GetFromJsonAsync<List<Game>>("api/game");
+        if (gamesList is not null)
+            gamesAtLocation = gamesList.Where(g => g.Location.Id.ToString() == PlayerId).ToList();
+    }
+
+
+}

@@ -1,0 +1,85 @@
+﻿@using GameNight.Client.Components;
+@using GameNight.Shared.Enums
+@using GameNight.Shared
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject GameNightProcessor GameProcessor
+
+@if (ratings is null)
+{
+    <span>Loading Ratings...</span>
+}
+else
+{
+    <table class="table table-light">
+        <thead class="table-primary">
+            <tr>
+                <th></th>
+                <th class="@(Player is not null ? "hide" : "")">Player</th>
+                <th class="@(Game is not null ? "hide" : "")">Game</th>
+                <th>Rating</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (Rating rat in ratings)
+            {
+                <tr>
+                    <td class="@(Player is not null ? "hide" : "")">
+                        <a @onclick="(() => NavigateToPlayer(rat.Player.Id))">
+                            <img src="@($"/images/players/small/{rat.Player.Id}-small.jpg")"
+                                 class="employee-img rounded-circle img-fluid small-image" /></a>
+                    </td>
+                    <td class="@(Game is not null ? "hide" : "")">
+                        <a @onclick="(() => NavigateToGame(rat.Game.Id))">
+                            <img src="@rat.Game.ThumbnailUrl" class="employee-img rounded-circle img-fluid small-image" /></a>
+                    </td>
+                    <td class="@(Player is not null ? "hide" : "")"><a @onclick="(() => NavigateToPlayer(rat.Player.Id))">@rat.Player.FirstName</a></td>
+                    <td class="@(Game is not null ? "hide" : "")"><a @onclick="(() => NavigateToGame(rat.Game.Id))">@rat.Game.Title</a></td>
+                    <td>@GameProcessor.RatingAsString(rat.GameRating)</td>
+                    <td>
+                        <button class="btn btn-primary btn-sm mb-1" @onclick="() => EditRating(rat.Id)">
+                            Rate
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    List<Rating>? ratings;
+    [Parameter] public Game? Game { get; set; } = null;
+    [Parameter] public Player? Player { get; set; } = null;
+
+    void EditRating(int id)
+    {
+        NavigationManager.NavigateTo($"/rating/{id}");
+    }
+
+    public void NavigateToPlayer(int id)
+    {
+        NavigationManager.NavigateTo($"/playerdetails/{id}");
+    }
+    public void NavigateToGame(int id)
+    {
+        NavigationManager.NavigateTo($"/gamedetails/{id}");
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var ratingsList = await Http.GetFromJsonAsync<List<Rating>>("api/rating");
+        if (ratingsList is not null)
+        {
+            if(Player is not null)
+                ratings = ratingsList.Where(r => r.PlayerId == Player.Id).OrderByDescending(r => r.GameRating).ToList();
+            else if (Game is not null) 
+                ratings = ratingsList.Where(r => r.GameId == Game.Id).OrderByDescending(r => r.GameRating).ToList();
+            else 
+                ratings = ratingsList.OrderByDescending(r => r.GameRating).ToList();
+        }
+    }
+
+}
+

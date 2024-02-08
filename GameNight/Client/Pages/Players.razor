@@ -1,0 +1,238 @@
+﻿@page "/players"
+@page "/"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@using GameNight.Client.Components
+
+<div class="@hideLoggModal alert @loggModalColor fixed-button-tr col-9" style="z-index: 10;" role="alert">
+    @loggModalText
+</div>
+
+@if (players is null)
+{
+    <span><em>Loading Players...</em></span>
+}
+else
+{
+    <div style="margin: auto;">
+        <button class="btn @(processing == true ? "disabled btn-warning" : "btn-primary")" @onclick="SubmitLogg">
+            @(processing == true ? "Processing..." : "Add Logg")
+        </button>
+        <button disabled class="btn btn-primary @(processing == true ? "disabled" : "")" @onclick="AddPlayer">
+            Add Player
+        </button>
+        <button class="btn btn-primary @(processing == true ? "disabled" : "")" @onclick="ToggleShowRetired">
+            Retired
+        </button>
+    </div>
+    <br />
+    <div class="row" style="margin-right: calc(-0.26 * var(--bs-gutter-x));">
+        @if (showRetired is false)
+        {
+            if (AttendingPlayers is not null)
+            {
+                @foreach (var player in AttendingPlayers)
+                {
+                    <div class="col-12 col-sm-6 col-md-6 col-lg-4 col-xl-2 player-card-container">
+                        <CascadingValue Value="this">
+                            <ChildContent>
+                                <PlayerCard Player="player"></PlayerCard>
+                            </ChildContent>
+                        </CascadingValue>
+                    </div>
+                }
+            }
+            if (NotAttendingPlayers is not null)
+            {
+                @foreach (var player in NotAttendingPlayers)
+                {
+                    <div class="col-12 col-sm-6 col-md-6 col-lg-4 col-xl-2 player-card-container">
+                        <CascadingValue Value="this">
+                            <ChildContent>
+                                <PlayerCard Player="player"></PlayerCard>
+                            </ChildContent>
+                        </CascadingValue>
+                    </div>
+                }
+            }
+        }
+        @if (showRetired is true)
+        {
+            if (RetiredPlayers is not null)
+            {
+                @foreach (var player in RetiredPlayers)
+                {
+                    <div class="col-12 col-sm-6 col-md-6 col-lg-4 col-xl-2 player-card-container">
+                        <CascadingValue Value="this">
+                            <ChildContent>
+                                <PlayerCard Player="player"></PlayerCard>
+                            </ChildContent>
+                        </CascadingValue>
+                    </div>
+                }
+            }
+        }
+
+        @if (LoggErrorOpen is true)
+        {
+            <LoggErrorModal Message="@LoggErrorMessage"></LoggErrorModal>
+        }
+    </div>
+}
+
+@code {
+    List<Player>? players;
+    List<Player>? AttendingPlayers = new List<Player>();
+    List<Player>? NotAttendingPlayers = new List<Player>();
+    List<Player>? RetiredPlayers = new List<Player>();
+    string hideLoggModal = "hide";
+    string loggModalText = string.Empty;
+    string loggModalColor = "alert-danger";
+
+    bool showRetired = false;
+    bool processing = false;
+
+    void AddPlayer()
+    {
+        NavigationManager.NavigateTo("/player");
+    }
+
+    public async Task DisableDictator()
+    {
+        if (AttendingPlayers is not null)
+        {
+            foreach (Player player in AttendingPlayers)
+            {
+                //TODO Transaction när fler saker ska skrivas in på servern
+                if (player.IsDictator is true)
+                {
+                    player.IsDictator = false;
+                    await Http.PutAsJsonAsync($"api/player/{player.Id}", player);
+                }
+            }
+        }
+    }
+
+    public void ToggleShowRetired()
+    {
+        if (showRetired is false)
+            showRetired = true;
+        else
+            showRetired = false;
+        SetAttendedLists();
+    }
+
+    #region For Loggs
+    bool LoggErrorOpen { get; set; }
+    string? LoggErrorMessage;
+    Player? Dictator = new Player();
+    public ICollection<Subject> Subjects { get; set; } = new List<Subject>();
+    Logg logg = new Logg();
+    Logg? LastLogg;
+
+    public async Task SubmitLogg()
+    {
+        if (AttendingPlayers is null || AttendingPlayers.Count <= 1)
+        {
+            await OpenLoggError("Not enough attending players");
+            return;
+        }
+        if (LastLogg is not null && DateOnly.FromDateTime(DateTime.Now) == DateOnly.FromDateTime(LastLogg!.DateOfEvent))
+        {
+            await OpenLoggError("Logg for this date already exists!");
+            return;
+        }
+
+        processing = true;
+        await SetDictator();
+        await SetAttendingPlayers();
+        try { await Http.PostAsJsonAsync("api/logg", logg); }
+        catch { throw new Exception("Could'nt save to server"); }
+
+        await AddAttendence();
+        processing = false;
+        await OnInitializedAsync();
+    }
+    public async Task OpenLoggError(string message)
+    {
+        LoggErrorMessage = message;
+        LoggErrorOpen = true;
+        await Task.Delay(3000);
+        LoggErrorOpen = false;
+    }
+    public async Task SetDictator()
+    {
+        if (AttendingPlayers is not null)
+            Dictator = AttendingPlayers.FirstOrDefault(p => p.IsDictator == true);
+        else
+            throw new Exception("No players found");
+
+        logg.Dictator = Dictator;
+        if (Dictator is not null)
+            logg.DictatorId = Dictator.Id;
+        else
+            logg.DictatorId = null;
+    }
+    public async Task SetAttendingPlayers()
+    {
+        if (AttendingPlayers is not null)
+        {
+            foreach (Player player in AttendingPlayers)
+            {
+                if (player.Id != logg.DictatorId)
+                {
+                    Subject newSubject = new Subject() { SubjectId = player.Id };
+                    Subjects.Add(newSubject);                   
+                }
+            }
+        }
+        else
+            throw new Exception("No players attending");
+        logg.Subjects = Subjects;
+    }
+    public async Task AddAttendence()
+    {
+        if (Dictator is null)
+            return;
+        else
+        {
+            if (Dictator is not null)
+                Dictator.TimesDictator += 1;
+            if (AttendingPlayers is not null)
+            {
+                foreach (Player player in AttendingPlayers)
+                {
+                    player.TimesAttended += 1;
+                    await Http.PutAsJsonAsync($"api/player/{player.Id}", player);
+                }
+            }           
+        }
+    }
+    #endregion
+
+    public void SetAttendedLists()
+    {
+        AttendingPlayers = players!.Where(p => p.Attending == true).Where(p => p.Retired == false)
+                .OrderByDescending(p => p.Attending).ThenBy(p => p.DictatorPrecentage).ToList();
+        NotAttendingPlayers = players!.Where(p => p.Attending == false).Where(p => p.Retired == false)
+               .OrderByDescending(p => p.Attending).ThenBy(p => p.DictatorPrecentage).ToList();
+        RetiredPlayers = players!.Where(p => p.Retired == true)
+               .OrderByDescending(p => p.TimesAttended).ThenBy(p => p.DictatorPrecentage).ToList();
+
+        StateHasChanged();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Http.GetFromJsonAsync<List<Player>>("api/player");
+        if (result is not null)
+            players = result;
+        SetAttendedLists();
+
+        var loggsList = await Http.GetFromJsonAsync<List<Logg>>("api/logg");
+        if (loggsList is not null)
+            LastLogg = loggsList.LastOrDefault();
+    }
+
+
+}

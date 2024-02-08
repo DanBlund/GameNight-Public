@@ -1,0 +1,67 @@
+﻿@inherits LayoutComponentBase
+
+
+<nav class="navbar navbar-expand-lg navbar-dark fixed-top bg-primary px-5"
+     aria-label="Bethany's Pie Shop navigation header">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/">
+            <img src="images/spelkvalllogo-2.png" width="151" height="47" class="d-inline-block align-top mb-2 mt-1"
+                 alt="GameNight Logo">
+        </a>
+
+        <button class="navbar-toggler" type="button" aria-label="Toggle navigation" @onclick="ToggleCollapse">
+            <span class="navbar-toggler-icon hide-on-big"></span>
+        </button>
+
+        <h1 class="navbar-brand me-auto ms-5 title-font hide-on-small" style="color:black;"></h1>
+
+        <div class="@collapseStatus navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav mb-2 mb-lg-0 hide-on-big">
+                <li class="nav-item" @onclick="ToggleCollapse">
+                    <a class="nav-link" href="/players">
+                        Dictators
+                    </a>
+                </li>
+                <li class="nav-item" @onclick="ToggleCollapse">
+                    <a class="nav-link" href="/games">
+                        Games
+                    </a>
+                </li>
+                <li class="nav-item" @onclick="ToggleCollapse">
+                    <a class="nav-link" href="/loggs">
+                        Loggs
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container-fluid h-100">
+    <div class="row h-100">
+        <NavMenu></NavMenu> @* SendPageTitle="ChangeTitle" *@
+        <div id="page-content-wrapper">
+            @Body
+        </div>
+    </div>
+</div>
+
+
+@code {
+    public string collapseStatus = "collapse";
+    // static string title = "Dictators";
+
+    // public void ChangeTitle(string newTitle)
+    // {
+    //     title = newTitle;
+    //     StateHasChanged();
+    // }
+    public void ToggleCollapse()
+    {
+        if (collapseStatus is "")
+            collapseStatus = "collapse";
+        else if (collapseStatus is "collapse")
+            collapseStatus = "";
+    }
+
+}

@@ -1,0 +1,25 @@
+﻿@if (1 == 1)
+{
+﻿<div class="modal fade show" style="display:block; background-color: rgba(10,10,10,.8);" aria-modal="true" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                </div>
+                <div class="modal-body d-flex justify-content-center">
+                    <h2>@Message</h2>
+                </div>
+                <div class="modal-footer">
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string? Message { get; set; }
+
+
+}

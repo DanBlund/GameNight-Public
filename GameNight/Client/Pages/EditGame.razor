@@ -1,0 +1,185 @@
+﻿@page "/game"
+@page "/game/{id:int}"
+@using GameNight.Shared.Enums
+@using GameNight.Client.Components
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+@if (Id is null)
+{
+    <PageTitle>Create Game</PageTitle>
+    <h3>Add new Game</h3>
+}
+else
+{
+    <PageTitle>Edit @game.Title</PageTitle>
+    <h3>Edit @game.Title</h3>
+}
+
+<EditForm Model="game" OnSubmit="HandleSubmit">
+    @* OnValidSubmit="" OnInvalidSubmit="" *@
+    @*     <DataAnnotationsValidator /> *@
+    <div>
+        <label for="title">Title</label>
+        <InputText id="title" @bind-Value="game.Title" class="form-control" required></InputText>
+    </div>
+    <br />
+    <div class="d-flex justify-content-between">
+        <div class="col-2">
+            <label for="minPlayers">Minimum players</label>
+            <InputSelect id="minPlayers" @bind-Value="game.MinPlayers" class="form-select">
+                <option selected></option>
+                @for (int i = 1; i < 10; i++)
+                {
+                    <option class="select-option" value="@i">@i</option>
+                }
+                <option class="select-option" value="10">10+</option>
+            </InputSelect>      
+        </div>
+        <div class="col-2">
+            <label for="maxPlayers">Maximum players</label>
+            <InputSelect id="maxPlayers" @bind-Value="game.MaxPlayers" class="form-select">
+                <option selected></option>
+                @for (int i = 1; i < 10; i++)
+                {
+                    if (i >= game.MinPlayers)
+                    {
+                        <option class="select-option" value="@i">@i</option>
+                    }
+                }
+                <option class="select-option" value="10">10+</option>
+            </InputSelect>
+        </div>
+        <div class="col-2">
+            <label for="bestMinPlayers">Best Min pl</label>
+            <InputSelect id="bestMinPlayers" @bind-Value="game.BestMinPlayers" class="form-select">
+                <option selected></option>
+                @for (int i = 1; i < 11; i++)
+                {
+                    if (i >= game.MinPlayers && i <= game.MaxPlayers)
+                    {
+                        <option class="select-option" value="@i">@i</option>
+                    }
+                }
+            </InputSelect>
+        </div>
+        <div class="col-2">
+            <label for="bestMaxPlayers">Best Max pl</label>
+            <InputSelect id="bestMaxPlayers" @bind-Value="game.BestMaxPlayers" class="form-select">
+                <option selected></option>
+                @for (int i = 1; i < 11; i++)
+                {
+                    if (i >= game.BestMinPlayers && i >= game.MinPlayers && i <= game.MaxPlayers)
+                    {
+                        <option class="select-option" value="@i">@i</option>
+                    }
+                }
+            </InputSelect>
+        </div>
+    </div>
+    <br />
+    <div>
+        <label for="gameLength">Game Length</label>
+        <InputNumber id="gameLength" @bind-Value="game.GameLength" class="form-control"></InputNumber>
+    </div>
+    <br />
+    <div>
+        <label for="gameComplex">Complexity</label>
+        <InputSelect id="gameComplex" @bind-Value="game.GameComplexity" class="form-select">
+            <option selected></option>
+            @foreach (GameComplexity complex in Enum.GetValues(typeof(GameComplexity)))
+            {
+                <option value="@complex">@complex</option>
+            }
+        </InputSelect>
+    </div>
+    <br />
+    <div>
+        <label for="location">Location:</label>
+        <InputSelect id="location" @bind-Value="game.PlayerId" class="form-select" required> 
+            <option selected></option>
+            @foreach (Player player in players)
+            {
+                <option value="@player.Id">@player.FirstName</option>
+            }
+        </InputSelect>
+    </div>
+    <br />
+    <div>
+        <label for="description">Comment</label>
+        <InputText id="description" @bind-Value="game.Description" class="form-control"></InputText>
+    </div>
+    <br />
+    <div>
+        <label for="imageUrl">Image URL</label>
+        <InputText id="imageUrl" @bind-Value="game.ImageUrl" class="form-control"></InputText>
+    </div>
+    <br />
+    <div>
+        <label for="thumbnailUrl">Thumbnail URL</label>
+        <InputText id="thumbnailUrl" @bind-Value="game.ThumbnailUrl" class="form-control"></InputText>
+    </div>
+    <br />
+    <div>
+        <label for="retired">Retired</label>
+        <InputCheckbox style="width:15px; height:15px;" id="retired" @bind-Value="game.Retired"></InputCheckbox>
+    </div>
+    <br />
+    <button type="submit" class="btn @(processing == true ? "disabled btn-warning" : "btn-primary")">@(processing == true ? "Processing..." : "Save")</button>
+    <button disabled type="button" class="btn btn-primary @(Id == null ? "hide" : "") @(processing == true ? "disabled" : "")" @onclick="() => OpenDeleteModal(game)">Delete</button>
+</EditForm>
+    @if (DeleteModalOpen)
+    {
+        <DeleteModal game="game" OnClose="@OnDeleteModalClose"></DeleteModal>
+    }
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+    Game game = new Game();
+    List<Player> players = new List<Player>();
+    bool processing = false;
+
+    async Task HandleSubmit()
+    {
+        processing = true;
+        if (Id is null)
+        {
+            await Http.PostAsJsonAsync("api/game", game);
+            NavigationManager.NavigateTo("/games");
+        }
+        else
+        {
+            await Http.PutAsJsonAsync($"api/game/{Id}", game);
+            NavigationManager.NavigateTo($"/games");
+        }
+    }
+
+    #region For Delete Game
+    bool DeleteModalOpen { get; set; }
+
+    private void OnDeleteModalClose(bool accepted)
+    {
+        DeleteModalOpen = false;
+        NavigationManager.NavigateTo("/games");
+    }
+    private void OpenDeleteModal(Game game)
+    {
+        DeleteModalOpen = true;
+    }
+    #endregion
+
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id is not null)
+        {
+            var result = await Http.GetFromJsonAsync<Game>($"api/game/{Id}");
+            if (result is not null)
+                game = result;
+        }
+        var playerList = await Http.GetFromJsonAsync<List<Player>>("api/player");
+        if (playerList is not null)
+            players = playerList;
+    }
+}

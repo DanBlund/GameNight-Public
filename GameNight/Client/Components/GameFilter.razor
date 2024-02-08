@@ -1,0 +1,221 @@
+﻿@inject HttpClient Http
+
+@* FILTER GAMES SHOWN *@
+<div class="game-filter-col d-flex flex-column justify-content-around">
+    <div class="col-10 d-flex flex-column mx-auto">
+        <p class="filter-text">Title</p>
+        <input type="text" class="form-control d-inline-flex" placeholder="Title" @bind="Title">
+        <br />
+        <div class="d-flex justify-content-between">
+            <div class="col-5">
+                <p class="filter-text">Pl. Count</p>
+                <select class="form-control" @bind="PlCount">
+                    <option selected value="0">All</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10+</option>
+                </select>
+            </div>
+            <div class="col-5 align-self-end">
+                <div class="form-check">
+                    @if (plCount is 0)
+                    {
+                        <input disabled type="checkbox" class="form-check-input" id="exampleCheck1" @bind="OnlyBestPlc">
+                        <label class="form-check-label opacity-50" for="exampleCheck1">Best Pl. Count</label>
+                    }
+                    else
+                    {
+                        <input type="checkbox" class="form-check-input" id="exampleCheck1" @bind="OnlyBestPlc">
+                        <label class="form-check-label" for="exampleCheck1">Best Pl. Count</label>
+                    }
+
+                </div>
+            </div>
+        </div>
+        <br />
+        <p class="filter-text">Complexity</p>
+        <select class="form-control" @bind="Complex">
+            <option selected>All</option>
+            <option value="Party">Party</option>
+            <option value="Light">Light</option>
+            <option value="Medium">Medium</option>
+            <option value="Heavy">Heavy</option>
+        </select>
+        <br />
+        <p class="filter-text">Location</p>
+        <select class="form-control" @bind="Location">
+            <option selected value="99">All</option>
+            @foreach (Player player in players)
+            {
+                <option value="@player.Id">@player.FirstName</option>
+            }
+        </select>
+        <br />
+        <p class="filter-text">Length</p>
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex justify-content-start align-items-center">
+                <input type="text" class="form-control div-for-textbox-numbers d-inline-flex" placeholder="min" @bind="MinLength">
+                <p class="filter-text m-3">to</p>
+                <input type="text" class="form-control div-for-textbox-numbers d-inline-flex" placeholder="max" @bind="MaxLength">
+            </div>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="exampleCheck1" @bind="IsRetired">
+                <label class="form-check-label" for="exampleCheck1">Retired</label>
+            </div>
+        </div>
+        <br />
+            <button class="btn btn-outline-primary btn-sm mb-1" @onclick="(() => ResetFields())">
+                Reset
+            </button>
+        <br />
+    </div>
+</div>
+
+@code {
+    List<Game>? games;
+    List<Player> players = new List<Player>();
+
+    #region Filter Options
+    string? title;
+    int? minLength;
+    int? maxLength;
+    string complex = "All";
+    int location = 99;
+    int plCount = 0;
+    bool onlyBestPlc = false;
+    bool isRetired = false;
+
+    [Parameter]
+    public EventCallback<string?> Tit { get; set; }
+    public string? Title
+    {
+        get => title;
+        set
+        {
+            title = value;
+            Tit.InvokeAsync(title);
+        }
+    }
+    [Parameter]
+    public EventCallback<int?> MinL { get; set; }
+    public int? MinLength
+    {
+        get => minLength;
+        set
+        {
+            minLength = value;
+            MinL.InvokeAsync(minLength);
+        }
+    }
+    [Parameter]
+    public EventCallback<int?> MaxL { get; set; }
+    public int? MaxLength
+    {
+        get => maxLength;
+        set
+        {
+            maxLength = value;
+            MaxL.InvokeAsync(maxLength);
+        }
+    }
+    [Parameter]
+    public EventCallback<string> Comp { get; set; }
+    public string Complex
+    {
+        get => complex;
+        set
+        {
+            complex = value;
+            Comp.InvokeAsync(complex);
+        }
+    }
+    [Parameter]
+    public EventCallback<int> PlC { get; set; }
+    public int PlCount
+    {
+        get => plCount;
+        set
+        {
+            plCount = value;
+            PlC.InvokeAsync(plCount);
+            if (value is 0)
+            {
+                onlyBestPlc = false;
+                BplC.InvokeAsync(onlyBestPlc);
+            }
+        }
+    }
+    [Parameter]
+    public EventCallback<bool> BplC { get; set; }
+    public bool OnlyBestPlc
+    {
+        get => onlyBestPlc;
+        set
+        {
+            onlyBestPlc = value;
+            BplC.InvokeAsync(onlyBestPlc);
+        }
+    }
+    [Parameter]
+    public EventCallback<bool> Ret { get; set; }
+    public bool IsRetired
+    {
+        get => isRetired;
+        set
+        {
+            isRetired = value;
+            Ret.InvokeAsync(isRetired);
+        }
+    }
+    [Parameter]
+    public EventCallback<int> Loca { get; set; }
+    public int Location
+    {
+        get => location;
+        set
+        {
+            location = value;
+            Loca.InvokeAsync(location);
+        }
+    }
+    #endregion
+
+    public void ResetFields()
+    {
+        title = null;
+        minLength = null;
+        maxLength = null;
+        complex = "All";
+        location = 99;
+        plCount = 0;
+        onlyBestPlc = false;
+        isRetired = false;
+        MinL.InvokeAsync(minLength);
+        MaxL.InvokeAsync(maxLength);
+        Comp.InvokeAsync(complex);
+        Loca.InvokeAsync(location);
+        PlC.InvokeAsync(plCount);
+        BplC.InvokeAsync(onlyBestPlc);
+        Ret.InvokeAsync(isRetired);
+        Tit.InvokeAsync(title);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var gameResult = await Http.GetFromJsonAsync<List<Game>>("api/game");
+        if (gameResult is not null)
+            games = gameResult;
+
+        var playersResult = await Http.GetFromJsonAsync<List<Player>>("api/player");
+        if (playersResult is not null)
+            players = playersResult;
+        else players = new List<Player>();
+    }
+
+}

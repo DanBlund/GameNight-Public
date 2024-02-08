@@ -1,0 +1,138 @@
+﻿@page "/newrating/{GameId:int}"
+@page "/rating/{id:int}"
+@using GameNight.Shared
+@using GameNight.Shared.Enums
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject GameNightProcessor GameProcessor
+
+<PageTitle>Rate @gameName</PageTitle>
+
+<h2>Rate @gameName: @GameProcessor.RatingAsString(newRating)</h2>
+
+<div class="btn-toolbar" role="toolbar" aria-label="Toolbar with button groups">
+    <div class="btn-group button-group" role="group" aria-label="First group">
+        <button type="button" class="btn btn-custom-blue" @onclick="(() => SetRating(GameRatings.IG))">IG</button>
+    </div>
+    <div class="btn-group button-group" role="group" aria-label="Second group">
+        <button type="button" class="btn btn-custom-blue" @onclick="(() => SetRating(GameRatings.Gm))">G-</button>
+        <button type="button" class="btn btn-custom-blue" @onclick="(() => SetRating(GameRatings.G))">G</button>
+        <button type="button" class="btn btn-custom-blue" @onclick="(() => SetRating(GameRatings.Gp))">G+</button>
+    </div>
+    <div class="btn-group button-group" role="group" aria-label="Third group">
+        <button type="button" class="btn btn-custom-blue" @onclick="(() => SetRating(GameRatings.VGm))">VG-</button>
+        <button type="button" class="btn btn-custom-blue" @onclick="(() => SetRating(GameRatings.VG))">VG</button>
+        <button type="button" class="btn btn-custom-blue" @onclick="(() => SetRating(GameRatings.VGp))">VG+</button>
+    </div>
+    <div class="btn-group button-group" role="group" aria-label="Fourth group">
+        <button type="button" class="btn btn-custom-blue" @onclick="(() => SetRating(GameRatings.MVG))">MVG</button>
+    </div>
+</div>
+<br />
+<EditForm Model="Rating" OnSubmit="HandleSubmit">
+    @*     <div>
+    <label for="rating">Rating</label>
+    <InputSelect id="rating" @bind-Value="Rating.GameRating" class="form-select" required>
+    <option selected></option>
+    @foreach (GameRatings rating in Enum.GetValues(typeof(GameRatings)))
+    {
+    <option value="@rating">@rating</option>
+    }
+    </InputSelect>
+    </div>
+    <br /> *@
+    @if (Id is null)
+    {
+        <div>
+            <label for="player">Player</label>
+            <InputSelect id="player" @bind-Value="Rating.PlayerId" class="form-select" required>
+                <option selected></option>
+                @foreach (Player player in Players)
+                {
+                    <option value="@player.Id">@player.FirstName</option>
+                }
+            </InputSelect>
+        </div>
+    }
+    else
+    {
+        <div class="@(Id is null ? "hide" : "")">
+            <label for="player">Player</label>
+            <InputSelect id="player" @bind-Value="Rating.PlayerId" class="form-select" required>
+                <option value="@Rating.PlayerId">
+                    @if (Rating.Player is not null)
+                    {
+                        @Rating.Player.FirstName
+                    }
+                </option>
+            </InputSelect>
+        </div>
+    }
+    <br />
+    <button type="submit" class="btn @(processing == true ? "disabled btn-warning" : "btn-primary")">@(processing == true ? "Processing..." : "Save")</button>
+</EditForm>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+    [Parameter]
+    public int? GameId { get; set; }
+    Rating Rating = new Rating();
+    List<Player> Players = new List<Player>();
+    public string gameName = "No Game found";
+    public bool processing = false;
+    GameRatings? newRating = null;
+
+    public void SetRating(GameRatings rating)
+    {
+        newRating = rating;
+    }
+    async Task HandleSubmit()
+    {
+        processing = true;
+        if (Id is null)
+        {
+            // RATE OR UPPDATE?
+            Rating.GameId = GameId;
+            Rating? alreadyRated = null;
+            var ratingsList = await Http.GetFromJsonAsync<List<Rating>>("api/rating");
+            if (ratingsList is not null)
+                alreadyRated = ratingsList.FirstOrDefault(r => r.PlayerId == Rating.PlayerId && r.GameId == GameId);
+            Rating.GameRating = newRating;
+            if (alreadyRated is null)
+                await Http.PostAsJsonAsync("api/rating", Rating);
+            else
+                await Http.PutAsJsonAsync($"api/rating/{alreadyRated.Id}", Rating);
+        }
+        else
+        {
+            Rating.GameRating = newRating;
+            await Http.PutAsJsonAsync($"api/rating/{Id}", Rating);
+        }
+        await JSRuntime.InvokeVoidAsync("history.back");
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id is not null)
+        {
+            var result = await Http.GetFromJsonAsync<Rating>($"api/rating/{Id}");
+            if (result is not null)
+                Rating = result;
+
+            if (Rating.Game != null)
+                gameName = Rating.Game.Title;
+        }
+        else
+        {
+            var playerList = await Http.GetFromJsonAsync<List<Player>>("api/player");
+            if (playerList is not null)
+                Players = playerList.Where(p => p.Retired == false).ToList();
+
+            var game = await Http.GetFromJsonAsync<Game>($"api/game/{GameId}");
+            if (game is not null)
+                gameName = game.Title;
+        }
+    }
+}

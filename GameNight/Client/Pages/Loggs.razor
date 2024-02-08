@@ -1,0 +1,142 @@
+﻿@page "/loggs"
+@using GameNight.Client.Components
+@inject HttpClient Http
+
+@if (loggs is null)
+{
+    <p><em>Loading Loggs... </em></p>
+}
+else
+{
+    <table class="table table-light">
+        <thead class="table-primary">
+            <tr>
+                <th>2020</th>
+                <th>2021</th>
+                <th>2022</th>
+                <th>2023</th>
+                <th>2024</th>
+                <th>Tot</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>@plays2020</td>
+                <td>@plays2021</td>
+                <td>@plays2022</td>
+                <td>@plays2023</td>
+                <td>@plays2024</td>
+                <td>@playsTot</td>
+            </tr>
+        </tbody>
+    </table>
+
+
+    <table class="table table-light">
+        <thead class="table-primary">
+            <tr>
+                <th class="hide-on-small"></th>
+                <th>Date</th>
+                <th>Subjects</th>
+                <th>Dictator</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var logg in loggs)
+            {
+                <tr>
+                    <td class="hide-on-small"></td>
+                    <td>@DateOnly.FromDateTime(logg.DateOfEvent)</td>
+                    <td>@SubjectsAsNames(logg)</td>
+                    @if (logg.Dictator is null)
+                    {
+                        <td style="color: green;">Demokrati</td>
+                    }
+                    else
+                    {
+                        <td style="color: red;">@logg.Dictator.FirstName</td>
+                    }
+                    <td>
+                        @if (maxLoggId == logg.Id)
+                        {
+                            <button class="btn btn-primary btn-sm mb-1 " @onclick="() => OpenDeleteModal(logg)">
+                                Delete
+                            </button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    if (DeleteModalOpen)
+    {
+        <DeleteModal logg="selectedLogg" OnClose="@OnDeleteModalClose"></DeleteModal>
+    }
+}
+
+
+@code {
+    List<Logg>? loggs;
+    List<Player> players = new List<Player>();
+    int maxLoggId = 0;
+
+    static int plays2020 = 44;
+    static int plays2021 = 38;
+    static int plays2022 = 32;
+    static int plays2023 = 38;
+    static int plays2024;
+    int playsTot;
+
+    public string SubjectsAsNames(Logg logg)
+    {
+        string names = string.Empty;
+        foreach (Subject subject in logg.Subjects)
+        {
+            Player? attend = players.FirstOrDefault(p => p.Id == subject.SubjectId);
+            if (attend is not null)
+                names += attend.FirstName.ToString() + ", ";
+            else
+                names += "REMOVED, ";
+        }
+        return names;
+    }
+
+    #region For Delete Logg
+    public bool DeleteModalOpen { get; set; }
+    public Logg? selectedLogg { get; set; }
+
+    private async Task OnDeleteModalClose(bool accepted)
+    {
+        DeleteModalOpen = false;
+        await OnInitializedAsync();
+        StateHasChanged();
+    }
+    private void OpenDeleteModal(Logg logg)
+    {
+        DeleteModalOpen = true;
+        selectedLogg = logg;
+    }
+
+    #endregion
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Http.GetFromJsonAsync<List<Logg>>("api/logg");
+        if (result is not null)
+            loggs = result.OrderByDescending(l => l.Id).ToList();
+
+        if (loggs is not null && loggs.Count > 0)
+        {
+            maxLoggId = loggs.Max(l => l.Id);
+
+            var playersList = await Http.GetFromJsonAsync<List<Player>>("api/player");
+            if (playersList is not null)
+                players = playersList;     
+        }
+        if(loggs is not null)
+            plays2024 = loggs.Count;      
+            
+        playsTot = plays2020 + plays2021 + plays2022 + plays2023 + plays2024;
+    }
+}
